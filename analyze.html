@@ -1,0 +1,469 @@
+{% extends "base.html" %}
+
+{% block title %}Single Analysis - Resume Relevance System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <!-- Resume Upload Card -->
+        <div class="card h-100">
+            <div class="card-header bg-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-file-upload me-2"></i>
+                    Upload Resume
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="upload-area" class="upload-area">
+                    <i class="fas fa-cloud-upload-alt fa-3x text-primary mb-3"></i>
+                    <h5>Drop resume here or click to browse</h5>
+                    <p class="text-muted">Supports PDF and TXT files (Max 16MB)</p>
+                </div>
+                <input type="file" id="resume-file" class="d-none" accept=".pdf,.txt">
+                
+                <div id="file-info" class="mt-3" style="display: none;">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <span id="file-name"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-4">
+        <!-- Job Description Card -->
+        <div class="card h-100">
+            <div class="card-header bg-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-briefcase me-2"></i>
+                    Job Description
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="jd-template" class="form-label">Quick Templates:</label>
+                    <select id="jd-template" class="form-select">
+                        <option value="">Select a template (optional)</option>
+                        <option value="data-science">Data Science Role</option>
+                        <option value="software-engineer">Software Engineer Role</option>
+                        <option value="business-analyst">Business Analyst Role</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="job-description" class="form-label">Job Description:</label>
+                    <textarea id="job-description" class="form-control" rows="8" 
+                              placeholder="Enter the complete job description including required skills, qualifications, and experience..." required></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Analysis Button -->
+<div class="row mb-4">
+    <div class="col-12 text-center">
+        <button id="analyze-btn" class="btn btn-primary btn-lg" onclick="analyzeResume()">
+            <i class="fas fa-search me-2"></i>
+            Analyze Resume
+        </button>
+    </div>
+</div>
+
+<!-- Progress Bar -->
+<div id="progress-wrapper" class="progress-wrapper">
+    <div class="progress" style="height: 25px;">
+        <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+             style="width: 0%" role="progressbar"></div>
+    </div>
+    <p class="text-center mt-2">
+        <span id="progress-text">Analyzing resume...</span>
+    </p>
+</div>
+
+<!-- Results Section -->
+<div id="results-section" class="result-section">
+    <!-- Score Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="metric-card">
+                <i class="fas fa-chart-line fa-2x text-primary mb-2"></i>
+                <h3 id="final-score" class="fw-bold">0/100</h3>
+                <p class="text-muted mb-0">Relevance Score</p>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="metric-card">
+                <i class="fas fa-award fa-2x text-success mb-2"></i>
+                <h3 id="verdict" class="fw-bold">-</h3>
+                <p class="text-muted mb-0">Verdict</p>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="metric-card">
+                <i class="fas fa-bullseye fa-2x text-info mb-2"></i>
+                <h3 id="hard-score" class="fw-bold">0/100</h3>
+                <p class="text-muted mb-0">Hard Match</p>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="metric-card">
+                <i class="fas fa-brain fa-2x text-warning mb-2"></i>
+                <h3 id="semantic-score" class="fw-bold">0/100</h3>
+                <p class="text-muted mb-0">Semantic Match</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Skills Analysis -->
+    <div class="row mb-4">
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-check-circle me-2 text-success"></i>
+                        Found Skills
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="found-skills"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-times-circle me-2 text-danger"></i>
+                        Missing Skills
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="missing-skills"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Score Breakdown Chart -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        Score Breakdown
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="breakdown-chart" height="100"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="row">
+        <div class="col-12 text-center">
+            <button class="btn btn-success me-2" onclick="analyzeAnother()">
+                <i class="fas fa-plus me-1"></i>
+                Analyze Another Resume
+            </button>
+            <a href="{{ url_for('bulk_page') }}" class="btn btn-outline-primary">
+                <i class="fas fa-upload me-1"></i>
+                Try Bulk Processing
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const jobTemplates = {
+        'data-science': `Data Science Position
+
+We are looking for a Data Scientist to join our analytics team.
+
+Required Skills:
+- Python programming (Pandas, NumPy, Matplotlib, Seaborn)
+- SQL database knowledge (MySQL, PostgreSQL)
+- Machine learning fundamentals
+- Statistics and statistical analysis
+- Data visualization tools (Power BI, Tableau)
+- Experience with data cleaning and preprocessing
+
+Qualifications:
+- Bachelor's degree in Computer Science, Statistics, or related field
+- 2+ years of data analysis experience
+- Strong analytical and problem-solving skills
+
+Experience:
+- Experience with exploratory data analysis (EDA)
+- Knowledge of statistical modeling techniques
+- Familiarity with business intelligence tools`,
+
+        'software-engineer': `Software Engineering Position
+
+We are seeking a Software Engineer for our development team.
+
+Required Skills:
+- Python, Java, or JavaScript programming
+- Web development frameworks (React, Angular, Django, Flask)
+- Database knowledge (MySQL, PostgreSQL, MongoDB)
+- Version control with Git
+- REST API development
+- HTML, CSS, JavaScript
+
+Qualifications:
+- Bachelor's degree in Computer Science or related field
+- 1+ years of software development experience
+- Strong problem-solving abilities
+
+Experience:
+- Full-stack development experience preferred
+- Agile development methodology
+- Experience with cloud platforms (AWS, Azure)`,
+
+        'business-analyst': `Business Analyst Position
+
+Looking for a Business Analyst to drive data-driven decision making.
+
+Required Skills:
+- SQL for data extraction and analysis
+- Excel advanced functions and pivot tables
+- Power BI or Tableau for data visualization
+- Business intelligence and analytics
+- Data interpretation and reporting
+- Statistical analysis fundamentals
+
+Qualifications:
+- Bachelor's degree in Business, Engineering, or related field
+- 2+ years of business analysis experience
+- Strong communication and presentation skills
+
+Experience:
+- Requirements gathering and documentation
+- Process improvement and optimization
+- Stakeholder management and collaboration`
+    };
+
+    let breakdownChart = null;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        setupDragAndDrop('upload-area', 'resume-file');
+        setupTemplateSelector();
+    });
+
+    function setupTemplateSelector() {
+        document.getElementById('jd-template').addEventListener('change', function() {
+            const template = this.value;
+            if (template && jobTemplates[template]) {
+                document.getElementById('job-description').value = jobTemplates[template];
+            }
+        });
+    }
+
+    function updateFileDisplay(uploadAreaId, files) {
+        const uploadArea = document.getElementById(uploadAreaId);
+        const fileInfo = document.getElementById('file-info');
+        const fileName = document.getElementById('file-name');
+        
+        if (files.length > 0) {
+            const file = files[0];
+            fileName.textContent = `Selected: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+            fileInfo.style.display = 'block';
+            
+            uploadArea.innerHTML = `
+                <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                <h5>File Ready for Analysis</h5>
+                <div class="badge bg-primary">${file.name}</div>
+                <p class="text-muted mt-2">Click to change file</p>
+            `;
+        }
+    }
+
+    function analyzeResume() {
+        const fileInput = document.getElementById('resume-file');
+        const jobDescription = document.getElementById('job-description').value.trim();
+        
+        // Validation
+        if (!fileInput.files.length) {
+            showAlert('Please select a resume file', 'warning');
+            return;
+        }
+        
+        if (!jobDescription) {
+            showAlert('Please enter a job description', 'warning');
+            document.getElementById('job-description').focus();
+            return;
+        }
+        
+        // Prepare form data
+        const formData = new FormData();
+        formData.append('resume', fileInput.files[0]);
+        formData.append('job_description', jobDescription);
+        
+        // Show progress
+        document.getElementById('analyze-btn').disabled = true;
+        document.getElementById('progress-wrapper').style.display = 'block';
+        document.getElementById('results-section').style.display = 'none';
+        
+        // Simulate progress
+        simulateProgress();
+        
+        // Make API call
+        fetch('/api/analyze', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                showAlert('Analysis failed: ' + data.error, 'danger');
+                return;
+            }
+            
+            displayResults(data);
+            showAlert('Analysis completed successfully!', 'success');
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Analysis failed. Please try again.', 'danger');
+        })
+        .finally(() => {
+            document.getElementById('analyze-btn').disabled = false;
+            document.getElementById('progress-wrapper').style.display = 'none';
+        });
+    }
+
+    function simulateProgress() {
+        let progress = 0;
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        
+        const stages = [
+            { progress: 20, text: 'Extracting text from resume...' },
+            { progress: 40, text: 'Analyzing job requirements...' },
+            { progress: 60, text: 'Matching skills and qualifications...' },
+            { progress: 80, text: 'Calculating semantic similarity...' },
+            { progress: 100, text: 'Generating final score...' }
+        ];
+        
+        let currentStage = 0;
+        
+        const interval = setInterval(() => {
+            if (currentStage < stages.length) {
+                const stage = stages[currentStage];
+                progressBar.style.width = stage.progress + '%';
+                progressText.textContent = stage.text;
+                currentStage++;
+            } else {
+                clearInterval(interval);
+            }
+        }, 800);
+    }
+
+    function displayResults(data) {
+        // Update score cards
+        document.getElementById('final-score').textContent = `${data.relevance_score}/100`;
+        document.getElementById('hard-score').textContent = `${data.hard_score}/100`;
+        document.getElementById('semantic-score').textContent = `${data.semantic_score}/100`;
+        
+        // Update verdict with styling
+        const verdictElement = document.getElementById('verdict');
+        verdictElement.textContent = data.verdict;
+        verdictElement.className = `fw-bold ${getVerdictClass(data.verdict)}`;
+        
+        // Display skills
+        displaySkills('found-skills', data.found_skills, 'skill-tag');
+        displaySkills('missing-skills', data.missing_skills, 'missing-skill-tag');
+        
+        // Create breakdown chart
+        createBreakdownChart(data);
+        
+        // Show results section
+        document.getElementById('results-section').style.display = 'block';
+        document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function displaySkills(containerId, skills, tagClass) {
+        const container = document.getElementById(containerId);
+        
+        if (skills.length === 0) {
+            container.innerHTML = '<p class="text-muted">None identified</p>';
+            return;
+        }
+        
+        const skillsHtml = skills.slice(0, 15).map(skill => 
+            `<span class="${tagClass}">${skill}</span>`
+        ).join(' ');
+        
+        container.innerHTML = skillsHtml;
+        
+        if (skills.length > 15) {
+            container.innerHTML += `<div class="mt-2"><small class="text-muted">+${skills.length - 15} more skills</small></div>`;
+        }
+    }
+
+    function createBreakdownChart(data) {
+        const ctx = document.getElementById('breakdown-chart').getContext('2d');
+        
+        if (breakdownChart) {
+            breakdownChart.destroy();
+        }
+        
+        breakdownChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['Hard Match', 'Semantic Match', 'Final Score'],
+                datasets: [{
+                    label: 'Score',
+                    data: [data.hard_score, data.semantic_score, data.relevance_score],
+                    backgroundColor: ['#17a2b8', '#28a745', '#667eea'],
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            callback: function(value) {
+                                return value + '/100';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function analyzeAnother() {
+        // Reset form
+        document.getElementById('resume-file').value = '';
+        document.getElementById('job-description').value = '';
+        document.getElementById('jd-template').value = '';
+        document.getElementById('file-info').style.display = 'none';
+        document.getElementById('results-section').style.display = 'none';
+        
+        // Reset upload area
+        document.getElementById('upload-area').innerHTML = `
+            <i class="fas fa-cloud-upload-alt fa-3x text-primary mb-3"></i>
+            <h5>Drop resume here or click to browse</h5>
+            <p class="text-muted">Supports PDF and TXT files (Max 16MB)</p>
+        `;
+        
+        // Scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+</script>
+{% endblock %}

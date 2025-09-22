@@ -1,0 +1,674 @@
+{% extends "base.html" %}
+
+{% block title %}Bulk Processing - Resume Relevance System{% endblock %}
+
+{% block content %}
+<!-- Job Description Card -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-briefcase me-2"></i>
+                    Job Description for Bulk Analysis
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="bulk-jd-template" class="form-label">Quick Templates:</label>
+                        <select id="bulk-jd-template" class="form-select">
+                            <option value="">Select a template (optional)</option>
+                            <option value="data-science">Data Science Role</option>
+                            <option value="software-engineer">Software Engineer Role</option>
+                            <option value="business-analyst">Business Analyst Role</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="bulk-job-description" class="form-label">Job Description:</label>
+                    <textarea id="bulk-job-description" class="form-control" rows="6" 
+                              placeholder="Enter the job description that all resumes will be evaluated against..." required></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- File Upload Card -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-upload me-2"></i>
+                    Upload Multiple Resumes
+                </h5>
+            </div>
+            <div class="card-body">
+                <div id="bulk-upload-area" class="upload-area">
+                    <i class="fas fa-cloud-upload-alt fa-3x text-primary mb-3"></i>
+                    <h5>Drop multiple resumes here or click to browse</h5>
+                    <p class="text-muted">Supports PDF and TXT files • Select multiple files at once</p>
+                    <div class="mt-3">
+                        <span class="badge bg-info">Max 16MB per file</span>
+                        <span class="badge bg-warning">Up to 50 files</span>
+                    </div>
+                </div>
+                <input type="file" id="bulk-resume-files" class="d-none" accept=".pdf,.txt" multiple>
+                
+                <div id="bulk-file-list" class="mt-4" style="display: none;">
+                    <h6>Selected Files:</h6>
+                    <div id="file-list-container" class="row"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Process Button -->
+<div class="row mb-4">
+    <div class="col-12 text-center">
+        <button id="bulk-process-btn" class="btn btn-primary btn-lg" onclick="processBulk()">
+            <i class="fas fa-cogs me-2"></i>
+            Process All Resumes
+        </button>
+    </div>
+</div>
+
+<!-- Progress Section -->
+<div id="bulk-progress-wrapper" class="progress-wrapper">
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">
+                <i class="fas fa-spinner fa-spin me-2"></i>
+                Processing Resumes
+            </h5>
+            <div class="progress mb-3" style="height: 25px;">
+                <div id="bulk-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                     style="width: 0%" role="progressbar"></div>
+            </div>
+            <div class="row text-center">
+                <div class="col-md-3">
+                    <div class="metric-card">
+                        <h4 id="processed-count" class="text-primary">0</h4>
+                        <small>Processed</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="metric-card">
+                        <h4 id="total-count" class="text-muted">0</h4>
+                        <small>Total</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="metric-card">
+                        <h4 id="current-file" class="text-info">-</h4>
+                        <small>Current File</small>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="metric-card">
+                        <h4 id="eta" class="text-success">-</h4>
+                        <small>ETA</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Results Section -->
+<div id="bulk-results-section" class="result-section">
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="metric-card">
+                <i class="fas fa-file-alt fa-2x text-primary mb-2"></i>
+                <h3 id="total-processed" class="fw-bold">0</h3>
+                <p class="text-muted mb-0">Resumes Processed</p>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="metric-card">
+                <i class="fas fa-chart-line fa-2x text-success mb-2"></i>
+                <h3 id="bulk-avg-score" class="fw-bold">0.0</h3>
+                <p class="text-muted mb-0">Average Score</p>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="metric-card">
+                <i class="fas fa-trophy fa-2x text-warning mb-2"></i>
+                <h3 id="bulk-high-count" class="fw-bold">0</h3>
+                <p class="text-muted mb-0">High Matches</p>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="metric-card">
+                <i class="fas fa-medal fa-2x text-info mb-2"></i>
+                <h3 id="bulk-top-score" class="fw-bold">0</h3>
+                <p class="text-muted mb-0">Top Score</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Table -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-table me-2"></i>
+                        Bulk Analysis Results
+                    </h5>
+                    <div>
+                        <button class="btn btn-outline-secondary btn-sm me-2" onclick="sortResults('score')">
+                            <i class="fas fa-sort-amount-down me-1"></i>
+                            Sort by Score
+                        </button>
+                        <button class="btn btn-outline-primary btn-sm" onclick="exportBulkResults()">
+                            <i class="fas fa-download me-1"></i>
+                            Export CSV
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Resume</th>
+                                    <th>Score</th>
+                                    <th>Verdict</th>
+                                    <th>Hard Match</th>
+                                    <th>Semantic Match</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bulk-results-tbody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        Score Distribution
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="bulk-score-chart" height="100"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="row">
+        <div class="col-12 text-center">
+            <button class="btn btn-success me-2" onclick="processAnother()">
+                <i class="fas fa-plus me-1"></i>
+                Process Another Batch
+            </button>
+            <a href="{{ url_for('analyze_page') }}" class="btn btn-outline-primary">
+                <i class="fas fa-search me-1"></i>
+                Single Analysis
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const jobTemplates = {
+        'data-science': `Data Science Position
+
+We are looking for a Data Scientist to join our analytics team.
+
+Required Skills:
+- Python programming (Pandas, NumPy, Matplotlib, Seaborn)
+- SQL database knowledge (MySQL, PostgreSQL)
+- Machine learning fundamentals
+- Statistics and statistical analysis
+- Data visualization tools (Power BI, Tableau)
+- Experience with data cleaning and preprocessing
+
+Qualifications:
+- Bachelor's degree in Computer Science, Statistics, or related field
+- 2+ years of data analysis experience
+- Strong analytical and problem-solving skills`,
+
+        'software-engineer': `Software Engineering Position
+
+We are seeking a Software Engineer for our development team.
+
+Required Skills:
+- Python, Java, or JavaScript programming
+- Web development frameworks (React, Angular, Django, Flask)
+- Database knowledge (MySQL, PostgreSQL, MongoDB)
+- Version control with Git
+- REST API development
+- HTML, CSS, JavaScript
+
+Qualifications:
+- Bachelor's degree in Computer Science or related field
+- 1+ years of software development experience
+- Strong problem-solving abilities`,
+
+        'business-analyst': `Business Analyst Position
+
+Looking for a Business Analyst to drive data-driven decision making.
+
+Required Skills:
+- SQL for data extraction and analysis
+- Excel advanced functions and pivot tables
+- Power BI or Tableau for data visualization
+- Business intelligence and analytics
+- Data interpretation and reporting
+- Statistical analysis fundamentals
+
+Qualifications:
+- Bachelor's degree in Business, Engineering, or related field
+- 2+ years of business analysis experience
+- Strong communication and presentation skills`
+    };
+
+    let bulkResults = [];
+    let bulkScoreChart = null;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        setupBulkDragAndDrop();
+        setupBulkTemplateSelector();
+    });
+
+    function setupBulkDragAndDrop() {
+        const uploadArea = document.getElementById('bulk-upload-area');
+        const fileInput = document.getElementById('bulk-resume-files');
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                updateBulkFileDisplay(files);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            updateBulkFileDisplay(e.target.files);
+        });
+    }
+
+    function setupBulkTemplateSelector() {
+        document.getElementById('bulk-jd-template').addEventListener('change', function() {
+            const template = this.value;
+            if (template && jobTemplates[template]) {
+                document.getElementById('bulk-job-description').value = jobTemplates[template];
+            }
+        });
+    }
+
+    function updateBulkFileDisplay(files) {
+        const uploadArea = document.getElementById('bulk-upload-area');
+        const fileList = document.getElementById('bulk-file-list');
+        const fileListContainer = document.getElementById('file-list-container');
+        
+        if (files.length > 0) {
+            // Update upload area
+            uploadArea.innerHTML = `
+                <i class="fas fa-check-circle fa-3x text-success mb-3"></i>
+                <h5>${files.length} Files Selected</h5>
+                <p class="text-muted">Click to change selection</p>
+            `;
+            
+            // Show file list
+            fileList.style.display = 'block';
+            
+            // Create file cards
+            fileListContainer.innerHTML = '';
+            Array.from(files).forEach((file, index) => {
+                const fileCard = document.createElement('div');
+                fileCard.className = 'col-md-4 col-sm-6 mb-3';
+                fileCard.innerHTML = `
+                    <div class="card">
+                        <div class="card-body text-center">
+                            <i class="fas fa-file-alt fa-2x text-primary mb-2"></i>
+                            <h6 class="card-title">${file.name}</h6>
+                            <small class="text-muted">${(file.size / 1024 / 1024).toFixed(2)} MB</small>
+                        </div>
+                    </div>
+                `;
+                fileListContainer.appendChild(fileCard);
+            });
+        }
+    }
+
+    function processBulk() {
+        const fileInput = document.getElementById('bulk-resume-files');
+        const jobDescription = document.getElementById('bulk-job-description').value.trim();
+        
+        // Validation
+        if (!fileInput.files.length) {
+            showAlert('Please select resume files', 'warning');
+            return;
+        }
+        
+        if (!jobDescription) {
+            showAlert('Please enter a job description', 'warning');
+            document.getElementById('bulk-job-description').focus();
+            return;
+        }
+
+        if (fileInput.files.length > 50) {
+            showAlert('Maximum 50 files allowed per batch', 'warning');
+            return;
+        }
+        
+        // Prepare form data
+        const formData = new FormData();
+        Array.from(fileInput.files).forEach(file => {
+            formData.append('resumes', file);
+        });
+        formData.append('job_description', jobDescription);
+        
+        // Show progress
+        document.getElementById('bulk-process-btn').disabled = true;
+        document.getElementById('bulk-progress-wrapper').style.display = 'block';
+        document.getElementById('bulk-results-section').style.display = 'none';
+        
+        // Initialize progress
+        const totalFiles = fileInput.files.length;
+        document.getElementById('total-count').textContent = totalFiles;
+        document.getElementById('processed-count').textContent = '0';
+        
+        // Simulate progress (since we can't track real progress with current API)
+        simulateBulkProgress(totalFiles);
+        
+        // Make API call
+        fetch('/api/bulk-analyze', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                showAlert('Bulk analysis failed: ' + data.error, 'danger');
+                return;
+            }
+            
+            bulkResults = data.results;
+            displayBulkResults(data);
+            showAlert(`Successfully processed ${data.total_processed} resumes!`, 'success');
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Bulk analysis failed. Please try again.', 'danger');
+        })
+        .finally(() => {
+            document.getElementById('bulk-process-btn').disabled = false;
+            document.getElementById('bulk-progress-wrapper').style.display = 'none';
+        });
+    }
+
+    function simulateBulkProgress(totalFiles) {
+        let processed = 0;
+        const startTime = Date.now();
+        
+        const interval = setInterval(() => {
+            if (processed < totalFiles) {
+                processed++;
+                const progress = (processed / totalFiles) * 100;
+                
+                document.getElementById('bulk-progress-bar').style.width = progress + '%';
+                document.getElementById('processed-count').textContent = processed;
+                
+                const elapsed = (Date.now() - startTime) / 1000;
+                const avgTime = elapsed / processed;
+                const remaining = (totalFiles - processed) * avgTime;
+                const eta = remaining > 60 ? `${Math.round(remaining / 60)}m` : `${Math.round(remaining)}s`;
+                
+                document.getElementById('eta').textContent = eta;
+                document.getElementById('current-file').textContent = `File ${processed}`;
+            } else {
+                clearInterval(interval);
+            }
+        }, 1000);
+    }
+
+    function displayBulkResults(data) {
+        const results = data.results;
+        
+        // Calculate statistics
+        const avgScore = results.reduce((sum, r) => sum + r.relevance_score, 0) / results.length;
+        const highCount = results.filter(r => r.verdict === 'High').length;
+        const topScore = Math.max(...results.map(r => r.relevance_score));
+        
+        // Update summary cards
+        document.getElementById('total-processed').textContent = results.length;
+        document.getElementById('bulk-avg-score').textContent = avgScore.toFixed(1);
+        document.getElementById('bulk-high-count').textContent = highCount;
+        document.getElementById('bulk-top-score').textContent = topScore.toFixed(1);
+        
+        // Sort results by score (highest first)
+        results.sort((a, b) => b.relevance_score - a.relevance_score);
+        
+        // Update table
+        updateBulkTable(results);
+        
+        // Create chart
+        createBulkScoreChart(results);
+        
+        // Show results section
+        document.getElementById('bulk-results-section').style.display = 'block';
+        document.getElementById('bulk-results-section').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function updateBulkTable(results) {
+        const tbody = document.getElementById('bulk-results-tbody');
+        tbody.innerHTML = '';
+        
+        results.forEach((result, index) => {
+            const row = document.createElement('tr');
+            row.className = 'animate-fade-in';
+            
+            row.innerHTML = `
+                <td>
+                    <span class="badge ${index < 3 ? 'bg-warning' : 'bg-light text-dark'}">${index + 1}</span>
+                </td>
+                <td>
+                    <i class="fas fa-file-alt me-2 text-muted"></i>
+                    <span class="fw-medium">${result.filename}</span>
+                </td>
+                <td>
+                    <span class="fw-bold">${result.relevance_score}/100</span>
+                </td>
+                <td>
+                    <span class="${getVerdictClass(result.verdict)}">${result.verdict}</span>
+                </td>
+                <td>${result.hard_score.toFixed(1)}</td>
+                <td>${result.semantic_score.toFixed(1)}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-info" onclick="viewDetails(${index})">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </td>
+            `;
+            
+            tbody.appendChild(row);
+        });
+    }
+
+    function createBulkScoreChart(results) {
+        const ctx = document.getElementById('bulk-score-chart').getContext('2d');
+        
+        if (bulkScoreChart) {
+            bulkScoreChart.destroy();
+        }
+        
+        // Create score bins
+        const scores = results.map(r => r.relevance_score);
+        const bins = [0, 20, 40, 60, 80, 100];
+        const binLabels = ['0-20', '21-40', '41-60', '61-80', '81-100'];
+        const binCounts = new Array(5).fill(0);
+        
+        scores.forEach(score => {
+            const binIndex = Math.min(Math.floor(score / 20), 4);
+            binCounts[binIndex]++;
+        });
+        
+        bulkScoreChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: binLabels,
+                datasets: [{
+                    label: 'Number of Resumes',
+                    data: binCounts,
+                    backgroundColor: '#667eea',
+                    borderRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1 }
+                    }
+                }
+            }
+        });
+    }
+
+    function sortResults(criteria) {
+        if (criteria === 'score') {
+            bulkResults.sort((a, b) => b.relevance_score - a.relevance_score);
+        }
+        updateBulkTable(bulkResults);
+    }
+
+    function viewDetails(index) {
+        const result = bulkResults[index];
+        
+        // Create modal content
+        const modal = new bootstrap.Modal(document.createElement('div'));
+        modal._element.innerHTML = `
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">${result.filename} - Detailed Analysis</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <strong>Relevance Score:</strong> ${result.relevance_score}/100<br>
+                                <strong>Verdict:</strong> <span class="${getVerdictClass(result.verdict)}">${result.verdict}</span>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Hard Match:</strong> ${result.hard_score.toFixed(1)}/100<br>
+                                <strong>Semantic Match:</strong> ${result.semantic_score.toFixed(1)}/100
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Found Skills:</h6>
+                                <div>${result.found_skills.slice(0, 10).map(skill => `<span class="skill-tag">${skill}</span>`).join(' ')}</div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Missing Skills:</h6>
+                                <div>${result.missing_skills.slice(0, 10).map(skill => `<span class="missing-skill-tag">${skill}</span>`).join(' ')}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal._element);
+        modal.show();
+        
+        modal._element.addEventListener('hidden.bs.modal', () => {
+            modal._element.remove();
+        });
+    }
+
+    function exportBulkResults() {
+        const csv = bulkResults.map(r => [
+            r.filename,
+            r.relevance_score,
+            r.verdict,
+            r.hard_score.toFixed(1),
+            r.semantic_score.toFixed(1),
+            r.timestamp
+        ]);
+        
+        const csvContent = [
+            ['Resume', 'Score', 'Verdict', 'Hard Match', 'Semantic Match', 'Timestamp'],
+            ...csv
+        ].map(row => row.join(',')).join('\n');
+        
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `bulk_analysis_${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+    }
+
+    function processAnother() {
+        // Reset form
+        document.getElementById('bulk-resume-files').value = '';
+        document.getElementById('bulk-job-description').value = '';
+        document.getElementById('bulk-jd-template').value = '';
+        document.getElementById('bulk-file-list').style.display = 'none';
+        document.getElementById('bulk-results-section').style.display = 'none';
+        
+        // Reset upload area
+        document.getElementById('bulk-upload-area').innerHTML = `
+            <i class="fas fa-cloud-upload-alt fa-3x text-primary mb-3"></i>
+            <h5>Drop multiple resumes here or click to browse</h5>
+            <p class="text-muted">Supports PDF and TXT files • Select multiple files at once</p>
+            <div class="mt-3">
+                <span class="badge bg-info">Max 16MB per file</span>
+                <span class="badge bg-warning">Up to 50 files</span>
+            </div>
+        `;
+        
+        // Clear results
+        bulkResults = [];
+        
+        // Scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+</script>
+{% endblock %}
